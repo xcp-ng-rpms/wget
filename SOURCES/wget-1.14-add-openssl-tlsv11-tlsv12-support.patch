@@ -1,0 +1,122 @@
+diff --git a/doc/wget.texi b/doc/wget.texi
+index 118fce9..3bd8dd7 100644
+--- a/doc/wget.texi
++++ b/doc/wget.texi
+@@ -1555,16 +1555,17 @@ without SSL support, none of these options are available.
+ @cindex SSL protocol, choose
+ @item --secure-protocol=@var{protocol}
+ Choose the secure protocol to be used.  Legal values are @samp{auto},
+-@samp{SSLv2}, @samp{SSLv3}, and @samp{TLSv1}.  If @samp{auto} is used,
+-the SSL library is given the liberty of choosing the appropriate
+-protocol automatically, which is achieved by sending an SSLv2 greeting
+-and announcing support for SSLv3 and TLSv1.  This is the default.
+-
+-Specifying @samp{SSLv2}, @samp{SSLv3}, or @samp{TLSv1} forces the use
+-of the corresponding protocol.  This is useful when talking to old and
+-buggy SSL server implementations that make it hard for OpenSSL to
+-choose the correct protocol version.  Fortunately, such servers are
+-quite rare.
++@samp{SSLv2}, @samp{SSLv3}, @samp{TLSv1}, @samp{TLSv1_1} and
++@samp{TLSv1_2}.  If @samp{auto} is used, the SSL library is given the
++liberty of choosing the appropriate protocol automatically, which is
++achieved by sending a SSLv2 greeting and announcing support for SSLv3
++and TLSv1.  This is the default.
++
++Specifying @samp{SSLv2}, @samp{SSLv3}, @samp{TLSv1}, @samp{TLSv1_1} or
++@samp{TLSv1_2} forces the use of the corresponding protocol.  This is
++useful when talking to old and buggy SSL server implementations that
++make it hard for the underlying SSL library to choose the correct
++protocol version.  Fortunately, such servers are quite rare.
+ 
+ @cindex SSL certificate, check
+ @item --no-check-certificate
+diff --git a/src/init.c b/src/init.c
+index 4cee677..f160bec 100644
+--- a/src/init.c
++++ b/src/init.c
+@@ -1488,6 +1488,8 @@ cmd_spec_secure_protocol (const char *com, const char *val, void *place)
+     { "sslv2", secure_protocol_sslv2 },
+     { "sslv3", secure_protocol_sslv3 },
+     { "tlsv1", secure_protocol_tlsv1 },
++    { "tlsv1_1", secure_protocol_tlsv1_1 },
++    { "tlsv1_2", secure_protocol_tlsv1_2 },
+   };
+   int ok = decode_string (val, choices, countof (choices), place);
+   if (!ok)
+diff --git a/src/main.c b/src/main.c
+index 9cbad9f..3d50dad 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -625,7 +625,7 @@ HTTP options:\n"),
+ HTTPS (SSL/TLS) options:\n"),
+     N_("\
+        --secure-protocol=PR     choose secure protocol, one of auto, SSLv2,\n\
+-                                SSLv3, and TLSv1.\n"),
++                                SSLv3, TLSv1, TLSv1_1 and TLSv1_2.\n"),
+     N_("\
+        --no-check-certificate   don't validate the server's certificate.\n"),
+     N_("\
+diff --git a/src/openssl.c b/src/openssl.c
+index b3c31ce..141a8a3 100644
+--- a/src/openssl.c
++++ b/src/openssl.c
+@@ -40,6 +40,9 @@ as that of the covered work.  */
+ #include <openssl/x509v3.h>
+ #include <openssl/err.h>
+ #include <openssl/rand.h>
++#if OPENSSL_VERSION_NUMBER >= 0x00907000
++#include <openssl/conf.h>
++#endif
+ 
+ #include "utils.h"
+ #include "connect.h"
+@@ -176,6 +179,12 @@ ssl_init (void)
+       goto error;
+     }
+ 
++#if OPENSSL_VERSION_NUMBER >= 0x00907000
++  OPENSSL_load_builtin_modules();
++  ENGINE_load_builtin_engines();
++  CONF_modules_load_file(NULL, NULL,
++      CONF_MFLAGS_DEFAULT_SECTION|CONF_MFLAGS_IGNORE_MISSING_FILE);
++#endif
+   SSL_library_init ();
+   SSL_load_error_strings ();
+   SSLeay_add_all_algorithms ();
+@@ -197,6 +206,21 @@ ssl_init (void)
+     case secure_protocol_tlsv1:
+       meth = TLSv1_client_method ();
+       break;
++#if OPENSSL_VERSION_NUMBER >= 0x10001000
++    case secure_protocol_tlsv1_1:
++      meth = TLSv1_1_client_method ();
++      break;
++    case secure_protocol_tlsv1_2:
++      meth = TLSv1_2_client_method ();
++      break;
++#else
++    case secure_protocol_tlsv1_1:
++      logprintf (LOG_NOTQUIET, _("Your OpenSSL version is too old to support TLSv1.1\n"));
++      goto error;
++    case secure_protocol_tlsv1_2:
++      logprintf (LOG_NOTQUIET, _("Your OpenSSL version is too old to support TLSv1.2\n"));
++      goto error;
++#endif
+     default:
+       abort ();
+     }
+diff --git a/src/options.h b/src/options.h
+index 326123a..575e647 100644
+--- a/src/options.h
++++ b/src/options.h
+@@ -200,7 +200,9 @@ struct options
+     secure_protocol_auto,
+     secure_protocol_sslv2,
+     secure_protocol_sslv3,
+-    secure_protocol_tlsv1
++    secure_protocol_tlsv1,
++    secure_protocol_tlsv1_1,
++    secure_protocol_tlsv1_2
+   } secure_protocol;		/* type of secure protocol to use. */
+   bool check_cert;		/* whether to validate the server's cert */
+   char *cert_file;		/* external client certificate to use. */

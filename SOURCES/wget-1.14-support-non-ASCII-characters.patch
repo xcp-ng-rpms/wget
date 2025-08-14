@@ -1,0 +1,154 @@
+From 0a33fa22c597234ab133f63127b4a5e00cf048b9 Mon Sep 17 00:00:00 2001
+From: Tomas Hozza <thozza@redhat.com>
+Date: Mon, 20 Jun 2016 12:10:38 +0200
+Subject: [PATCH] Support non-ASCII characters
+
+Upstream commit 59b920874daa565a1323ffa1e756e80493190686
+
+Signed-off-by: Tomas Hozza <thozza@redhat.com>
+---
+ src/url.c             | 87 +++++++++++++++++++++++++++++++++++++++++++++++++--
+ tests/Test-ftp-iri.px |  4 +--
+ 2 files changed, 87 insertions(+), 4 deletions(-)
+
+diff --git a/src/url.c b/src/url.c
+index 6bca719..d0d9e27 100644
+--- a/src/url.c
++++ b/src/url.c
+@@ -42,6 +42,11 @@ as that of the covered work.  */
+ #include "url.h"
+ #include "host.h"  /* for is_valid_ipv6_address */
+ 
++#if HAVE_ICONV
++#include <iconv.h>
++#include <langinfo.h>
++#endif
++
+ #ifdef __VMS
+ #include "vms.h"
+ #endif /* def __VMS */
+@@ -1335,8 +1340,8 @@ UWC,  C,  C,  C,   C,  C,  C,  C,   /* NUL SOH STX ETX  EOT ENQ ACK BEL */
+   0,  0,  0,  0,   0,  0,  0,  0,   /* p   q   r   s    t   u   v   w   */
+   0,  0,  0,  0,   W,  0,  0,  C,   /* x   y   z   {    |   }   ~   DEL */
+ 
+-  C, C, C, C,  C, C, C, C,  C, C, C, C,  C, C, C, C, /* 128-143 */
+-  C, C, C, C,  C, C, C, C,  C, C, C, C,  C, C, C, C, /* 144-159 */
++  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, /* 128-143 */
++  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, /* 144-159 */
+   0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+   0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+ 
+@@ -1456,6 +1461,82 @@ append_uri_pathel (const char *b, const char *e, bool escaped,
+   TAIL_INCR (dest, outlen);
+ }
+ 
++static char *
++convert_fname (const char *fname)
++{
++  char *converted_fname = (char *)fname;
++#if HAVE_ICONV
++  const char *from_encoding = opt.encoding_remote;
++  const char *to_encoding = opt.locale;
++  iconv_t cd;
++  size_t len, done, inlen, outlen;
++  char *s;
++  const char *orig_fname = fname;;
++
++  /* Defaults for remote and local encodings.  */
++  if (!from_encoding)
++    from_encoding = "UTF-8";
++  if (!to_encoding)
++    to_encoding = nl_langinfo (CODESET);
++
++  cd = iconv_open (to_encoding, from_encoding);
++  if (cd == (iconv_t)(-1))
++    logprintf (LOG_VERBOSE, _("Conversion from %s to %s isn't supported\n"),
++	       quote (from_encoding), quote (to_encoding));
++  else
++    {
++      inlen = strlen (fname);
++      len = outlen = inlen * 2;
++      converted_fname = s = xmalloc (outlen + 1);
++      done = 0;
++
++      for (;;)
++	{
++	  if (iconv (cd, &fname, &inlen, &s, &outlen) != (size_t)(-1)
++	      && iconv (cd, NULL, NULL, &s, &outlen) != (size_t)(-1))
++	    {
++	      *(converted_fname + len - outlen - done) = '\0';
++	      iconv_close(cd);
++	      DEBUGP (("Converted file name '%s' (%s) -> '%s' (%s)\n",
++		       orig_fname, from_encoding, converted_fname, to_encoding));
++	      xfree (orig_fname);
++	      return converted_fname;
++	    }
++
++	  /* Incomplete or invalid multibyte sequence */
++	  if (errno == EINVAL || errno == EILSEQ)
++	    {
++	      logprintf (LOG_VERBOSE,
++			 _("Incomplete or invalid multibyte sequence encountered\n"));
++	      xfree (converted_fname);
++	      converted_fname = (char *)orig_fname;
++	      break;
++	    }
++	  else if (errno == E2BIG) /* Output buffer full */
++	    {
++	      done = len;
++	      len = outlen = done + inlen * 2;
++	      converted_fname = xrealloc (converted_fname, outlen + 1);
++	      s = converted_fname + done;
++	    }
++	  else /* Weird, we got an unspecified error */
++	    {
++	      logprintf (LOG_VERBOSE, _("Unhandled errno %d\n"), errno);
++	      xfree (converted_fname);
++	      converted_fname = (char *)orig_fname;
++	      break;
++	    }
++	}
++      DEBUGP (("Failed to convert file name '%s' (%s) -> '?' (%s)\n",
++	       orig_fname, from_encoding, to_encoding));
++    }
++
++    iconv_close(cd);
++#endif
++
++  return converted_fname;
++}
++
+ /* Append to DEST the directory structure that corresponds the
+    directory part of URL's path.  For example, if the URL is
+    http://server/dir1/dir2/file, this appends "/dir1/dir2".
+@@ -1582,6 +1663,8 @@ url_file_name (const struct url *u, char *replaced_filename)
+ 
+   fname = fnres.base;
+ 
++  fname = convert_fname (fname);
++
+   /* Check the cases in which the unique extensions are not used:
+      1) Clobbering is turned off (-nc).
+      2) Retrieval with regetting.
+diff --git a/tests/Test-ftp-iri.px b/tests/Test-ftp-iri.px
+index a4b7fe1..24ac467 100755
+--- a/tests/Test-ftp-iri.px
++++ b/tests/Test-ftp-iri.px
+@@ -26,12 +26,12 @@ my %urls = (
+     },
+ );
+ 
+-my $cmdline = $WgetTest::WGETPATH . " --local-encoding=iso-8859-1 -S ftp://localhost:{{port}}/fran${ccedilla_l1}ais.txt";
++my $cmdline = $WgetTest::WGETPATH . " --local-encoding=iso-8859-1 --remote-encoding=utf-8 -S ftp://localhost:{{port}}/fran${ccedilla_l1}ais.txt";
+ 
+ my $expected_error_code = 0;
+ 
+ my %expected_downloaded_files = (
+-    "fran${ccedilla_u8}ais.txt" => {
++    "fran${ccedilla_l1}ais.txt" => {
+         content => $francais,
+     },
+ );
+-- 
+2.5.5
+

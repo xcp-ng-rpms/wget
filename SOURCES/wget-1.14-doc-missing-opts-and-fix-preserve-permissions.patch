@@ -1,0 +1,61 @@
+From c78caecbb4209ce2e36a587497cf1d6b350e513a Mon Sep 17 00:00:00 2001
+From: Tomas Hozza <thozza@redhat.com>
+Date: Thu, 11 Jul 2013 15:52:28 +0000
+Subject: Document missing options and fix --preserve-permissions
+
+Added documentation for --regex-type and --preserve-permissions
+options.
+
+Fixed --preserve-permissions to work properly also if downloading a
+single file from FTP.
+
+Signed-off-by: Tomas Hozza <thozza@redhat.com>
+---
+diff --git a/doc/wget.texi b/doc/wget.texi
+index 710f0ac..5054382 100644
+--- a/doc/wget.texi
++++ b/doc/wget.texi
+@@ -1816,6 +1816,10 @@ in some rare firewall configurations, active FTP actually works when
+ passive FTP doesn't.  If you suspect this to be the case, use this
+ option, or set @code{passive_ftp=off} in your init file.
+ 
++@cindex file permissions
++@item --preserve-permissions
++Preserve remote file permissions instead of permissions set by umask.
++
+ @cindex symbolic links, retrieving
+ @item --retr-symlinks
+ Usually, when retrieving @sc{ftp} directories recursively and a symbolic
+@@ -2057,6 +2061,11 @@ it will be treated as a pattern, rather than a suffix.
+ @itemx --reject-regex @var{urlregex}
+ Specify a regular expression to accept or reject the complete URL.
+ 
++@item --regex-type @var{regextype}
++Specify the regular expression type.  Possible types are @samp{posix} or
++@samp{pcre}.  Note that to be able to use @samp{pcre} type, wget has to be
++compiled with libpcre support.
++
+ @item -D @var{domain-list}
+ @itemx --domains=@var{domain-list}
+ Set domains to be followed.  @var{domain-list} is a comma-separated list
+diff --git a/src/ftp.c b/src/ftp.c
+index 9b3d81c..1fe2bac 100644
+--- a/src/ftp.c
++++ b/src/ftp.c
+@@ -2285,11 +2285,11 @@ ftp_loop (struct url *u, char **local_file, int *dt, struct url *proxy,
+             file_part = u->path;
+           ispattern = has_wildcards_p (file_part);
+         }
+-      if (ispattern || recursive || opt.timestamping)
++      if (ispattern || recursive || opt.timestamping || opt.preserve_perm)
+         {
+           /* ftp_retrieve_glob is a catch-all function that gets called
+-             if we need globbing, time-stamping or recursion.  Its
+-             third argument is just what we really need.  */
++             if we need globbing, time-stamping, recursion or preserve
++             permissions.  Its third argument is just what we really need.  */
+           res = ftp_retrieve_glob (u, &con,
+                                    ispattern ? GLOB_GLOBALL : GLOB_GETONE);
+         }
+--
+cgit v0.9.0.2

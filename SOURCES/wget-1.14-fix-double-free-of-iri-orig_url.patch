@@ -1,0 +1,29 @@
+From bdf2764457bef7c33be289b889ddf6df91773296 Mon Sep 17 00:00:00 2001
+From: Tomas Hozza <thozza@redhat.com>
+Date: Wed, 10 Jul 2013 13:23:37 +0200
+Subject: [PATCH] Set iri->orig_url to NULL after free.
+
+Set iri->orig_url to NULL after free to prevent double
+free in retrieve_url() and iri_free() when using IRI
+and downloading site that redirects itself.
+
+Signed-off-by: Tomas Hozza <thozza@redhat.com>
+---
+ src/retr.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/retr.c b/src/retr.c
+index 6204839..66624dc 100644
+--- a/src/retr.c
++++ b/src/retr.c
+@@ -838,6 +838,7 @@ retrieve_url (struct url * orig_parsed, const char *origurl, char **file,
+       iri->utf8_encode = opt.enable_iri;
+       set_content_encoding (iri, NULL);
+       xfree_null (iri->orig_url);
++      iri->orig_url = NULL;
+ 
+       /* Now, see if this new location makes sense. */
+       newloc_parsed = url_parse (mynewloc, &up_error_code, iri, true);
+-- 
+1.8.3.1
+

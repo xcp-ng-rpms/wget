@@ -1,0 +1,47 @@
+From 613d8639c48b950f76d132b70d27e518ba6d6891 Mon Sep 17 00:00:00 2001
+From: Tomas Hozza <thozza@redhat.com>
+Date: Fri, 26 Apr 2013 14:42:30 +0200
+Subject: [PATCH] Fix using deadcode and possible use of NULL pointer
+
+Fix for deadcode in unique_create() so that "opened_name" parameter is
+always initialized to a valid string or NULL when returning from
+function.
+
+Fix for redirect_output() so that "logfile" is not blindly used in
+fprintf() call and checked if it is not NULL.
+
+Signed-off-by: Tomas Hozza <thozza@redhat.com>
+---
+ src/log.c   | 2 +-
+ src/utils.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/log.c b/src/log.c
+index 0185df1..4f93a21 100644
+--- a/src/log.c
++++ b/src/log.c
+@@ -871,7 +871,7 @@ redirect_output (void)
+          can do but disable printing completely. */
+       fprintf (stderr, _("\n%s received.\n"), redirect_request_signal_name);
+       fprintf (stderr, _("%s: %s; disabling logging.\n"),
+-               logfile, strerror (errno));
++               (logfile) ? logfile : DEFAULT_LOGFILE, strerror (errno));
+       inhibit_logging = true;
+     }
+   save_context_p = false;
+diff --git a/src/utils.c b/src/utils.c
+index 567dc35..7cc942f 100644
+--- a/src/utils.c
++++ b/src/utils.c
+@@ -703,7 +703,7 @@ unique_create (const char *name, bool binary, char **opened_name)
+       xfree (uname);
+       uname = unique_name (name, false);
+     }
+-  if (opened_name && fp != NULL)
++  if (opened_name)
+     {
+       if (fp)
+         *opened_name = uname;
+-- 
+1.8.1.4
+

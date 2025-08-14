@@ -1,0 +1,30 @@
+From aed7d4163a9e2083d294a9471e1347ab13d6f2ab Mon Sep 17 00:00:00 2001
+From: Pavel Mateja <pavel@netsafe.cz>
+Date: Sat, 2 Nov 2013 11:27:58 +0100
+Subject: [PATCH] http: specify Host when CONNECT is used.
+
+---
+ src/http.c    | 7 +++----
+ 2 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/src/http.c b/src/http.c
+index dbfcdfb..8917fa5 100644
+--- a/src/http.c
++++ b/src/http.c
+@@ -2013,10 +2013,9 @@ gethttp (struct url *u, struct http_stat *hs, int *dt, struct url *proxy,
+                  the regular request below.  */
+               proxyauth = NULL;
+             }
+-          /* Examples in rfc2817 use the Host header in CONNECT
+-             requests.  I don't see how that gains anything, given
+-             that the contents of Host would be exactly the same as
+-             the contents of CONNECT.  */
++          request_set_header (connreq, "Host",
++                              aprintf ("%s:%d", u->host, u->port),
++                              rel_value);
+ 
+           write_error = request_send (connreq, sock, 0);
+           request_free (connreq);
+-- 
+2.1.0
+

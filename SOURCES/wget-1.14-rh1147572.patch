@@ -1,0 +1,26 @@
+From 798f554773baf1adca376500ca120a992e6d7492 Mon Sep 17 00:00:00 2001
+From: Tim Ruehsen <tim.ruehsen@gmx.de>
+Date: Tue, 28 Aug 2012 16:38:21 +0200
+Subject: [PATCH] remove -nv from --report-speed in doc/wget.texi
+
+---
+ doc/wget.texi | 3 +--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/doc/wget.texi b/doc/wget.texi
+index 7efdc72..400debe 100644
+--- a/doc/wget.texi
++++ b/doc/wget.texi
+@@ -479,8 +479,7 @@ Turn off verbose without being completely quiet (use @samp{-q} for
+ that), which means that error messages and basic information still get
+ printed.
+ 
+-@item -nv
+-@itemx --report-speed=@var{type}
++@item --report-speed=@var{type}
+ Output bandwidth as @var{type}.  The only accepted value is @samp{bits}.
+ 
+ @cindex input-file
+-- 
+1.9.3
+

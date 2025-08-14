@@ -1,0 +1,80 @@
+From c52bbad9e4bad1393a9d6ba37e600d388f5ab419 Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivano@gnu.org>
+Date: Wed, 10 Jul 2013 20:59:34 +0200
+Subject: [PATCH] Make --backups work as documented
+
+---
+ src/http.c    | 6 ------
+ src/options.h | 2 +-
+ src/url.c     | 3 ++-
+ src/url.h     | 6 ++++++
+ 4 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/src/http.c b/src/http.c
+index 9f274dc..b0c782b 100644
+--- a/src/http.c
++++ b/src/http.c
+@@ -1641,12 +1641,6 @@ read_response_body (struct http_stat *hs, int sock, FILE *fp, wgint contlen,
+ } while (0)
+ #endif /* def __VMS [else] */
+ 
+-/* The flags that allow clobbering the file (opening with "wb").
+-   Defined here to avoid repetition later.  #### This will require
+-   rework.  */
+-#define ALLOW_CLOBBER (opt.noclobber || opt.always_rest || opt.timestamping \
+-                       || opt.dirstruct || opt.output_document)
+-
+ /* Retrieve a document through HTTP protocol.  It recognizes status
+    code, and correctly handles redirections.  It closes the network
+    socket.  If it receives an error from the functions below it, it
+diff --git a/src/options.h b/src/options.h
+index ed38617..0a10c9b 100644
+--- a/src/options.h
++++ b/src/options.h
+@@ -166,7 +166,7 @@ struct options
+   bool timestamping;		/* Whether to use time-stamping. */
+ 
+   bool backup_converted;	/* Do we save pre-converted files as *.orig? */
+-  bool backups;			/* Are numeric backups made? */
++  int backups;			/* Are numeric backups made? */
+ 
+   char *useragent;		/* User-Agent string, which can be set
+ 				   to something other than Wget. */
+diff --git a/src/url.c b/src/url.c
+index 5e2b9a3..bf9d697 100644
+--- a/src/url.c
++++ b/src/url.c
+@@ -1669,11 +1669,12 @@ url_file_name (const struct url *u, char *replaced_filename)
+      2) Retrieval with regetting.
+      3) Timestamping is used.
+      4) Hierarchy is built.
++     5) Backups are specified.
+ 
+      The exception is the case when file does exist and is a
+      directory (see `mkalldirs' for explanation).  */
+ 
+-  if ((opt.noclobber || opt.always_rest || opt.timestamping || opt.dirstruct)
++  if (ALLOW_CLOBBER
+       && !(file_exists_p (fname) && !file_non_directory_p (fname)))
+     {
+       unique = fname;
+diff --git a/src/url.h b/src/url.h
+index b7f4366..cd3782b 100644
+--- a/src/url.h
++++ b/src/url.h
+@@ -47,6 +47,12 @@ as that of the covered work.  */
+ #define DEFAULT_FTP_PORT 21
+ #define DEFAULT_HTTPS_PORT 443
+ 
++/* The flags that allow clobbering the file (opening with "wb").
++   Defined here to avoid repetition later.  #### This will require
++   rework.  */
++#define ALLOW_CLOBBER (opt.noclobber || opt.always_rest || opt.timestamping \
++                  || opt.dirstruct || opt.output_document || opt.backups > 0)
++
+ /* Specifies how, or whether, user auth information should be included
+  * in URLs regenerated from URL parse structures. */
+ enum url_auth_mode {
+-- 
+1.8.3.1
+

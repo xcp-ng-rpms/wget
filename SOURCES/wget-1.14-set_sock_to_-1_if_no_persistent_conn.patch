@@ -1,0 +1,32 @@
+From 8760123cee87e07a276b8b13ef48ada3a490ad47 Mon Sep 17 00:00:00 2001
+From: Tomas Hozza <thozza@redhat.com>
+Date: Thu, 11 Jul 2013 11:22:43 +0000
+Subject: Set sock variable to -1 if no persistent conn exists
+
+Wget should set sock variable to -1 if no persistent
+connection exists. Function persistent_available_p()
+tests persistent connection but if test_socket_open()
+fails it closes the socket but will not set sock variable
+to -1. After returning from persistent_available_p()
+it is possible that sock has still value of already
+closed connection.
+
+Signed-off-by: Tomas Hozza <thozza@redhat.com>
+---
+diff --git a/src/http.c b/src/http.c
+index 669f0fe..a693355 100644
+--- a/src/http.c
++++ b/src/http.c
+@@ -1983,6 +1983,10 @@ gethttp (struct url *u, struct http_stat *hs, int *dt, struct url *proxy,
+                     exec_name, quote (relevant->host));
+           return HOSTERR;
+         }
++      else if (sock != -1)
++        {
++          sock = -1;
++        }
+     }
+ 
+   if (sock < 0)
+--
+cgit v0.9.0.2
