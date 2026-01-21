@@ -1,7 +1,7 @@
 Summary: A utility for retrieving files using the HTTP or FTP protocols
 Name: wget
 Version: 1.21.4
-Release: 1%{?dist}
+Release: 1.1%{?dist}
 # Generally wget is distributed under GPLv3 or later but there are files in lib/ directory
 # which are under LGPLv2.1 or later and are actually built into the resulting rpm.
 # This version of wget is built with gnutls so I believe that the 'with openssl'
@@ -21,21 +21,30 @@ Provides: bundled(gnulib)
 BuildRequires: make
 BuildRequires: perl(lib)
 BuildRequires: perl(English)
+
+# Macro to bypass %check (if dependencies are not available)
+%bcond_without tests
+
+%if %{with tests}
+BuildRequires: perl(lib)
+BuildRequires: perl(English)
 BuildRequires: perl(HTTP::Daemon)
+%endif
+
 BuildRequires: python3
 BuildRequires: gnutls-devel
 BuildRequires: pkgconfig
 BuildRequires: texinfo
 BuildRequires: gettext
 BuildRequires: autoconf
-BuildRequires: libidn2-devel
 BuildRequires: libuuid-devel
 BuildRequires: perl-podlators
-BuildRequires: libpsl-devel
 BuildRequires: gpgme-devel
 BuildRequires: gcc
 BuildRequires: zlib-devel
 %if %{undefined rhel}
+BuildRequires: libidn2-devel
+BuildRequires: libpsl-devel
 BuildRequires: libmetalink-devel
 %endif
 BuildRequires: git-core
@@ -85,7 +94,9 @@ rm -f $RPM_BUILD_ROOT/%{_infodir}/dir
 %find_lang %{name}-gnulib
 
 %check
+%if %{with tests}
 make check
+%endif
 
 %files -f %{name}.lang -f %{name}-gnulib.lang
 %doc AUTHORS MAILING-LIST NEWS README COPYING doc/sample.wgetrc
@@ -95,6 +106,11 @@ make check
 %{_infodir}/*
 
 %changelog
+* Fri Feb 20 2026 Philippe Coval <philippe.coval@vates.tech> - 1.21.4-1.1
+- Make check optional (enabled by default)
+- Isolate unneeded libs
+- Rebuild for openssl-3
+
 * Tue Mar 05 2024 Michal Ruprich <mruprich@redhat.com> - 1.21.4-1
 - New version 1.21.4
 
