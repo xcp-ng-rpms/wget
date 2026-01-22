@@ -1,13 +1,19 @@
 Summary: A utility for retrieving files using the HTTP or FTP protocols
 Name: wget
-Version: 1.21.3
-Release: 3%{?dist}
-License: GPLv3+
+Version: 1.21.4
+Release: 1%{?dist}
+# Generally wget is distributed under GPLv3 or later but there are files in lib/ directory
+# which are under LGPLv2.1 or later and are actually built into the resulting rpm.
+# This version of wget is built with gnutls so I believe that the 'with openssl'
+# part in some files is not applicable here.
+License: GPL-3.0-or-later AND LGPL-2.1-or-later
 Url: http://www.gnu.org/software/wget/
 Source: ftp://ftp.gnu.org/gnu/wget/wget-%{version}.tar.gz
 
 Patch1: wget-1.17-path.patch
-Patch2: wget-1.21.3-hsts-32bit.patch
+# https://gitlab.com/gnuwget/wget/-/merge_requests/36
+Patch3: wget-1.21.4-py312.patch
+Patch4: wget-1.21.3-metalink-gnupg.patch
 
 Provides: webclient
 Provides: bundled(gnulib) 
@@ -29,7 +35,9 @@ BuildRequires: libpsl-devel
 BuildRequires: gpgme-devel
 BuildRequires: gcc
 BuildRequires: zlib-devel
+%if %{undefined rhel}
 BuildRequires: libmetalink-devel
+%endif
 BuildRequires: git-core
 
 %description
@@ -59,7 +67,11 @@ grep "PACKAGE_STRING='wget .* (Red Hat modified)'" configure || exit 1
     --enable-nls \
     --enable-ipv6 \
     --disable-rpath \
+%if %{defined rhel}
+    --without-metalink \
+%else
     --with-metalink \
+%endif
     --disable-year2038
 
 %{make_build}
@@ -83,6 +95,22 @@ make check
 %{_infodir}/*
 
 %changelog
+* Tue Mar 05 2024 Michal Ruprich <mruprich@redhat.com> - 1.21.4-1
+- New version 1.21.4
+
+* Sat Jul 22 2023 Fedora Release Engineering <releng@fedoraproject.org> - 1.21.3-7
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
+
+* Tue Mar 21 2023 Michal Ruprich <mruprich@redhat.com> - 1.21.3-6
+- SPDX migration
+- Disable metalink in RHEL builds
+
+* Sat Jan 21 2023 Fedora Release Engineering <releng@fedoraproject.org> - 1.21.3-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_38_Mass_Rebuild
+
+* Sat Jul 23 2022 Fedora Release Engineering <releng@fedoraproject.org> - 1.21.3-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild
+
 * Mon Mar 21 2022 Michal Ruprich <mruprich@redhat.com> - 1.21.3-3
 - Changing previous 32b fix to a proper one
 
