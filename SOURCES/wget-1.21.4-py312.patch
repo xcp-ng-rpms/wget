@@ -1,0 +1,37 @@
+From 9c8668048d01927932f9bef81dc13d6b4a37a977 Mon Sep 17 00:00:00 2001
+From: Yaakov Selkowitz <yselkowi@redhat.com>
+Date: Wed, 12 Jul 2023 18:04:37 -0400
+Subject: [PATCH] testenv: fix for Python 3.12
+
+* testenv/server/http/http_server.py (HTTPSServer): Update for
+  ssl.SSLContext APIs instead of deprecated ssl.wrap_socket().
+
+ssl.wrap_socket() was deprecated in 3.7 and removed in 3.12.
+This should be compatible back to 3.6 (RHEL 8 and newer).
+
+Copyright-paperwork-exempt: Yes
+---
+ testenv/server/http/http_server.py | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/testenv/server/http/http_server.py b/testenv/server/http/http_server.py
+index 2cc82fb9..fd6121af 100644
+--- a/testenv/server/http/http_server.py
++++ b/testenv/server/http/http_server.py
+@@ -47,10 +47,10 @@ class HTTPSServer(StoppableHTTPServer):
+                                                os.getenv('srcdir', '.'),
+                                                'certs',
+                                                'server-key.pem'))
+-        self.socket = ssl.wrap_socket(
++        ctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_SERVER)
++        ctx.load_cert_chain(CERTFILE, KEYFILE)
++        self.socket = ctx.wrap_socket(
+             sock=socket.socket(self.address_family, self.socket_type),
+-            certfile=CERTFILE,
+-            keyfile=KEYFILE,
+             server_side=True
+         )
+         self.server_bind()
+-- 
+2.41.0
+
