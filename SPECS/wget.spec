@@ -1,7 +1,7 @@
 Summary: A utility for retrieving files using the HTTP or FTP protocols
 Name: wget
 Version: 1.21.4
-Release: 1.2%{?dist}
+Release: 1.2~XCPNG2698.1%{?dist}
 # Generally wget is distributed under GPLv3 or later but there are files in lib/ directory
 # which are under LGPLv2.1 or later and are actually built into the resulting rpm.
 # This version of wget is built with gnutls so I believe that the 'with openssl'
